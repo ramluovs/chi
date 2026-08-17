@@ -1,9 +1,10 @@
 const { EmbedBuilder } = require('discord.js');
 const { safeFetch, resolveRobloxUser, BABY_BLUE } = require('./robloxHelper');
 
-function makeEmbed(title, description) {
+function makeEmbed(title, description, url = null) {
   const embed = new EmbedBuilder().setColor(BABY_BLUE);
   if (title) embed.setTitle(title);
+  if (url) embed.setURL(url);
   if (description) embed.setDescription(description);
   return embed;
 }
@@ -22,7 +23,7 @@ module.exports = {
     const target = await resolveRobloxUser(input);
     if (!target) {
       return message.reply({
-        embeds: [makeEmbed('✧ error', `No se encontró al usuario **${input}** en Roblox.`)]
+        embeds: [makeEmbed('✧ error', `No se encontró al usuario ${input} en Roblox.`)]
       });
     }
 
@@ -44,7 +45,7 @@ module.exports = {
     let isInventoryPublic = 'Desconocido';
     if (invRes && invRes.ok) {
       const invData = await invRes.json();
-      isInventoryPublic = invData.canView ? '🔓 Público' : '🔒 Privado';
+      isInventoryPublic = invData.canView ? 'Público' : 'Privado';
     }
 
     let headshotUrl = null;
@@ -55,25 +56,31 @@ module.exports = {
 
     const createdUnix = userData.created ? Math.floor(new Date(userData.created).getTime() / 1000) : null;
     const createdText = createdUnix ? `<t:${createdUnix}:D> (<t:${createdUnix}:R>)` : 'Desconocida';
+    
+    // Direct Roblox profile & interaction URLs
     const profileUrl = `https://www.roblox.com/users/${target.id}/profile`;
+    const friendsUrl = `https://www.roblox.com/users/${target.id}/friends`;
+    const followersUrl = `https://www.roblox.com/users/${target.id}/inventory#!/followers`;
+    const followingUrl = `https://www.roblox.com/users/${target.id}/inventory#!/following`;
 
+    // Title format: Perfil de {user_display} (@{username})
+    const displayName = target.displayName || target.name;
+    const titleText = `Perfil de ${displayName} (@${target.name})`;
+
+    // Description layout with stats directly below title, clean 2x2 rows, and bio
     const description = [
-      `👤 **Usuario:** [${target.name}](${profileUrl})`,
-      `🏷️ **Display:** ${target.displayName || target.name}`,
-      `🆔 **ID:** \`${target.id}\``,
-      `📅 **Creado:** ${createdText}`,
-      `🎒 **Inventario:** ${isInventoryPublic}`,
-      `🚫 **Baneado:** ${userData.isBanned ? 'Sí ⚠️' : 'No'}`,
+      `[Amigos (${friendsCount.toLocaleString()})](${friendsUrl}) | [Seguidores (${followersCount.toLocaleString()})](${followersUrl}) | [Siguiendo (${followingCount.toLocaleString()})](${followingUrl})`,
       '',
-      `👥 **Amigos:** ${friendsCount.toLocaleString()} | **Seguidores:** ${followersCount.toLocaleString()} | **Siguiendo:** ${followingCount.toLocaleString()}`,
+      `ID: \`${target.id}\` | Creado: ${createdText}`,
+      `Inventario: ${isInventoryPublic} | Baneado: ${userData.isBanned ? 'Sí' : 'No'}`,
       '',
-      `📝 **Descripción / Bio:**`,
+      `Descripción / Bio:`,
       userData.description ? `\`\`\`${userData.description.slice(0, 500)}\`\`\`` : '*Sin descripción*'
     ].join('\n');
 
-    const embed = makeEmbed(`✧ perfil de ${target.name} ♡`, description)
+    const embed = makeEmbed(titleText, description, profileUrl)
       .setThumbnail(headshotUrl)
-      .setFooter({ text: 'Roblox Profile Lookup ♡' });
+      .setFooter({ text: 'ver usuario de roblox' });
 
     return message.reply({ embeds: [embed] });
   }
