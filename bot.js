@@ -1,13 +1,18 @@
-const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+
+const BABY_BLUE = 0xaeefff;
+const LOG_CHANNEL_ID = '1340867275351261335';
+const ADMIN_ROLE_ID = '1340864854243803248';
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMessageReactions
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.GuildInvites // Needed to detect invite creation
   ]
 });
 
@@ -43,10 +48,45 @@ if (fs.existsSync(commandsPath)) {
 client.once('clientReady', () => {
   console.log(`✅ CHI is online as ${client.user.tag}`);
 
-  // Schedule birthday checks
   const birthdayCommand = client.commands.get('birthday');
   if (birthdayCommand && typeof birthdayCommand.scheduleCheck === 'function') {
     birthdayCommand.scheduleCheck(client);
+  }
+});
+
+// ===== INTERCEPT NON-BOT MANUAL INVITES =====
+client.on('inviteCreate', async invite => {
+  // If the invite was created by CHI, let it pass
+  if (invite.inviter?.id === client.user.id) return;
+
+  try {
+    // 1. Delete the unauthorized invite
+    await invite.delete('Invitación manual no permitida (debe usarse CHI)').catch(() => {});
+
+    // 2. Fetch the notification log channel
+    const logChannel = await invite.guild.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
+    if (!logChannel || !logChannel.isTextBased()) return;
+
+    const inviterId = invite.inviter?.id;
+    const inviterMention = inviterId ? `<@${inviterId}>` : 'Usuario desconocido';
+
+    const embed = new EmbedBuilder()
+      .setColor(BABY_BLUE)
+      .setTitle('✧ invitación no autorizada eliminada')
+      .setDescription(
+        `Intentaste crear una invitación manualmente sin usar **CHI**.\n\n` +
+        `El enlace generado ha sido eliminado automáticamente.\n` +
+        `Para crear invitaciones válidas de 1 solo uso o 30 minutos de duración, usa:\n` +
+        `> \`chi invite\`, \`chi inv\` o \`chi invitar\``
+      );
+
+    // Tags user and admin role outside the embed so they receive the actual ping
+    await logChannel.send({
+      content: `${inviterMention} <@&${ADMIN_ROLE_ID}>`,
+      embeds: [embed]
+    });
+  } catch (err) {
+    console.error('Error al interceptar invitación manual:', err);
   }
 });
 
@@ -72,7 +112,7 @@ client.on('messageCreate', async message => {
   }
 });
 
-// ===== TERMUX ERROR PROTECTION =====
+// ===== TERMUX ERROR HANDLING =====
 process.on('unhandledRejection', reason => console.error('[unhandledRejection]', reason));
 process.on('uncaughtException', err => console.error('[uncaughtException]', err));
 
