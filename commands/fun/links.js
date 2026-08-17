@@ -66,7 +66,7 @@ function buildLinksEmbed(page, expiresAt) {
       return entry.id ? `${entryLine}\n-# ID: ${entry.id}` : entryLine;
     }).join('\n\n'),
     '',
-    `-# Si quieres el link directo de alguno, responde a mi mensaje con el nombre o atajo (ej. dh, rami, catalogo). Si no quieres abrir Discord, ve acá: https://chidoris.lovable.app/view-links . Este mensaje vence a las <t:${expiresAt}:T>`
+    `-# Si no queres abrir Discord, ve acá: https://chidoris.lovable.app/view-links . Este mensaje vence a las <t:${expiresAt}:T>`
   ].join('\n');
 
   return new EmbedBuilder()
