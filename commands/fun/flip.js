@@ -1,21 +1,24 @@
 const { EmbedBuilder } = require('discord.js');
 
-const PASTEL_BLUE = 0xaeefff;
+const BABY_BLUE = 0xaeefff;
+
+function makeEmbed(description) {
+  return new EmbedBuilder()
+    .setColor(BABY_BLUE)
+    .setDescription(description);
+}
 
 module.exports = {
   name: 'flip',
   aliases: ['coin', 'moneda'],
-  description: 'Lanza una moneda.',
-  async execute(message, args, client) {
+  async execute(message) {
     const flippingMsg = await message.reply({
       embeds: [
-        new EmbedBuilder()
-          .setColor(PASTEL_BLUE)
-          .setDescription('Lanzando la moneda... <a:coinmariobrosarcade:1500007371420860436>')
+        makeEmbed('Lanzando la moneda... <a:coinmariobrosarcade:1500007371420860436>')
       ]
     });
 
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
     const isHeads = Math.random() < 0.5;
     const resultBold = isHeads ? '**cara**' : '**cruz**';
@@ -24,9 +27,7 @@ module.exports = {
 
     await flippingMsg.edit({
       embeds: [
-        new EmbedBuilder()
-          .setColor(PASTEL_BLUE)
-          .setDescription(`La moneda giró a ${speed} km/h, dio ${rotations} vueltas en el aire y cayó en ${resultBold}.`)
+        makeEmbed(`La moneda giró a ${speed} km/h, dio ${rotations} vueltas en el aire y cayó en ${resultBold}.`)
       ]
     });
 
@@ -44,17 +45,15 @@ module.exports = {
 
       const newFlip = await m.reply({
         embeds: [
-          new EmbedBuilder()
-            .setColor(PASTEL_BLUE)
-            .setDescription('Lanzando la moneda... <a:coinmariobrosarcade:1500007371420860436>')
+          makeEmbed('Lanzando la moneda... <a:coinmariobrosarcade:1500007371420860436>')
         ]
       });
-      await new Promise(resolve => setTimeout(resolve, 5000));
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
       await newFlip.edit({
         embeds: [
-          new EmbedBuilder()
-            .setColor(PASTEL_BLUE)
-            .setDescription(`La moneda giró a ${newSpeed} km/h, dio ${newRotations} vueltas en el aire y cayó en ${newResult}.`)
+          makeEmbed(`La moneda giró a ${newSpeed} km/h, dio ${newRotations} vueltas en el aire y cayó en ${newResult}.`)
         ]
       });
     });
