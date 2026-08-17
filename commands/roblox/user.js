@@ -57,24 +57,25 @@ module.exports = {
     const createdUnix = userData.created ? Math.floor(new Date(userData.created).getTime() / 1000) : null;
     const createdText = createdUnix ? `<t:${createdUnix}:D> (<t:${createdUnix}:R>)` : 'Desconocida';
     
-    // Direct Roblox profile & interaction URLs
+    // Direct Roblox profile, inventory & interaction URLs
     const profileUrl = `https://www.roblox.com/users/${target.id}/profile`;
     const friendsUrl = `https://www.roblox.com/users/${target.id}/friends`;
     const followersUrl = `https://www.roblox.com/users/${target.id}/inventory#!/followers`;
     const followingUrl = `https://www.roblox.com/users/${target.id}/inventory#!/following`;
+    const inventoryUrl = `https://www.roblox.com/users/${target.id}/inventory`;
 
-    // Title format: Perfil de {user_display} (@{username})
+    // Title format: {user_display} (@{username}) with clickable link to profile
     const displayName = target.displayName || target.name;
-    const titleText = `Perfil de ${displayName} (@${target.name})`;
+    const titleText = `${displayName} (@${target.name})`;
 
-    // Description layout with stats directly below title, clean 2x2 rows, and bio
+    // Description layout with bold labels, clickable numbers/links, 2x2 rows, and bio
     const description = [
-      `[Amigos (${friendsCount.toLocaleString()})](${friendsUrl}) | [Seguidores (${followersCount.toLocaleString()})](${followersUrl}) | [Siguiendo (${followingCount.toLocaleString()})](${followingUrl})`,
+      `**Amigos:** [${friendsCount.toLocaleString()}](${friendsUrl}) | **Seguidores:** [${followersCount.toLocaleString()}](${followersUrl}) | **Siguiendo:** [${followingCount.toLocaleString()}](${followingUrl})`,
       '',
-      `ID: \`${target.id}\` | Creado: ${createdText}`,
-      `Inventario: ${isInventoryPublic} | Baneado: ${userData.isBanned ? 'Sí' : 'No'}`,
+      `**ID:** \`${target.id}\` | **Creado:** ${createdText}`,
+      `**Inventario:** [${isInventoryPublic}](${inventoryUrl}) | **Baneado:** ${userData.isBanned ? 'Sí' : 'No'}`,
       '',
-      `Descripción / Bio:`,
+      `**Descripción / Bio:**`,
       userData.description ? `\`\`\`${userData.description.slice(0, 500)}\`\`\`` : '*Sin descripción*'
     ].join('\n');
 
