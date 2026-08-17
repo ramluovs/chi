@@ -1,15 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
 
 const BABY_BLUE = 0xaeefff;
-const BIRTHDAY_FILE = path.join(__dirname, '../../data/birthdays.json');
 const BACKUP_CHANNEL_ID = '1499961569914654871';
-
-const MONTH_NAMES = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-];
 
 function makeEmbed(title, description) {
   const embed = new EmbedBuilder().setColor(BABY_BLUE);
@@ -18,32 +10,33 @@ function makeEmbed(title, description) {
   return embed;
 }
 
-function loadLocalBirthdays() {
-  try {
-    if (!fs.existsSync(BIRTHDAY_FILE)) return {};
-    return JSON.parse(fs.readFileSync(BIRTHDAY_FILE, 'utf8'));
-  } catch {
-    return {};
-  }
-}
-
-async function loadFromBackupChannel(client) {
+// Fetch all messages from the backup channel without restricting by bot author ID
+async function loadAllFromBackupChannel(client) {
   try {
     const channel = await client.channels.fetch(BACKUP_CHANNEL_ID);
     if (!channel || !channel.isTextBased()) return {};
+
     const data = {};
     let lastId = null;
     let fetching = true;
 
     while (fetching) {
-      const messages = await channel.messages.fetch({ limit: 100, ...(lastId ? { before: lastId } : {}) });
-      if (!messages.size) { fetching = false; break; }
+      const messages = await channel.messages.fetch({
+        limit: 100,
+        ...(lastId ? { before: lastId } : {})
+      });
+
+      if (!messages.size) {
+        fetching = false;
+        break;
+      }
 
       for (const msg of messages.values()) {
-        if (msg.author.id !== client.user.id) continue;
-        const match = msg.content.match(/userId:(\d+)\s+date:(\d+)\/(\d+)(?:\/(\d+))?/);
+        // Regex matches both standard and older backup message formats
+        const match = msg.content.match(/userId:(\d+)\s+date:(\d+)\/(\d+)(?:\/(\d+))?/i);
         if (match) {
           const userId = match[1];
+          // If duplicate entries exist, keep the latest one found
           if (!data[userId]) {
             data[userId] = {
               month: parseInt(match[2], 10),
@@ -54,24 +47,38 @@ async function loadFromBackupChannel(client) {
         }
         lastId = msg.id;
       }
+
       if (messages.size < 100) fetching = false;
     }
+
     return data;
   } catch (e) {
-    console.error('Error al sincronizar desde el canal de backup:', e);
+    console.error('Error al sincronizar lista de cumpleaños desde el canal:', e);
     return {};
   }
 }
 
+// Calculates next birthday UNIX timestamp for Discord dynamic formatting
+function getNextBirthdayTimestamp(month, day) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+
+  // Create UTC date representation for the birthday this year
+  let bdayDate = new Date(Date.UTC(currentYear, month - 1, day, 12, 0, 0));
+
+  // If the birthday already passed this year, point to next year
+  if (bdayDate < now) {
+    bdayDate = new Date(Date.UTC(currentYear + 1, month - 1, day, 12, 0, 0));
+  }
+
+  return Math.floor(bdayDate.getTime() / 1000);
+}
+
 module.exports = {
+  name: 'birthdaylist',
+  aliases: ['blist', 'cumples', 'birthdays'],
   async execute(message) {
-    // 1. Cargar datos locales o sincronizar con el canal de respaldo
-    let birthdays = loadLocalBirthdays();
-
-    if (Object.keys(birthdays).length === 0) {
-      birthdays = await loadFromBackupChannel(message.client);
-    }
-
+    const birthdays = await loadAllFromBackupChannel(message.client);
     const entries = Object.entries(birthdays);
 
     if (!entries.length) {
@@ -82,24 +89,24 @@ module.exports = {
       });
     }
 
-    // 2. Ordenar cronológicamente (por mes y luego por día)
+    // Sort chronologically (by month, then by day)
     const sorted = entries
       .map(([userId, data]) => ({
         userId,
         month: data.month,
         day: data.day,
-        year: data.year || null
+        year: data.year || null,
+        timestamp: getNextBirthdayTimestamp(data.month, data.day)
       }))
       .sort((a, b) => {
         if (a.month !== b.month) return a.month - b.month;
         return a.day - b.day;
       });
 
-    // 3. Formatear la lista
+    // Format list using Discord Timestamps: <t:TIMESTAMP:D> (e.g., "15 de mayo de 2026")
     const lines = sorted.map(item => {
-      const monthName = MONTH_NAMES[item.month - 1] || `Mes ${item.month}`;
-      const yearText = item.year ? ` (${item.year})` : '';
-      return `♡- <@${item.userId}> — **${item.day} de ${monthName}**${yearText}`;
+      const yearNote = item.year ? ` *(Año: ${item.year})*` : '';
+      return `♡- <@${item.userId}> — <t:${item.timestamp}:D>${yearNote}`;
     });
 
     const embed = makeEmbed(
