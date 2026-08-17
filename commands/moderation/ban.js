@@ -1,6 +1,7 @@
 const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 
 const BABY_BLUE = 0xaeefff;
+const MOD_ROLE_ID = '1340864854243803248';
 
 function makeEmbed(title, description) {
   const embed = new EmbedBuilder().setColor(BABY_BLUE);
@@ -13,9 +14,12 @@ module.exports = {
   name: 'ban',
   aliases: [],
   async execute(message, args) {
-    if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
+    const hasRole = message.member.roles.cache.has(MOD_ROLE_ID);
+    const hasAdmin = message.member.permissions.has(PermissionFlagsBits.Administrator);
+
+    if (!hasRole && !hasAdmin) {
       return message.reply({
-        embeds: [makeEmbed('✧ error', 'No tienes permisos para banear miembros.')]
+        embeds: [makeEmbed('✧ error', 'No tienes permiso para usar este comando.')]
       });
     }
 
