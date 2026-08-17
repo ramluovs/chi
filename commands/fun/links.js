@@ -1,7 +1,8 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
-const PASTEL_BLUE = 0xaeefff;
+const BABY_BLUE = 0xaeefff;
 
+// Fallback data if the API fails
 const DEFAULT_LINKS = {
   pages: [
     {
@@ -26,6 +27,28 @@ const DEFAULT_LINKS = {
   ]
 };
 
+// Aliases when users reply to the links message
+const REPLY_ALIASES = {
+  dh: 'da hood',
+  dahood: 'da hood',
+  'da hood': 'da hood',
+  cat: 'catalogo',
+  catalogo: 'catalogo',
+  outfit: 'outfit loader',
+  outfitloader: 'outfit loader',
+  'outfit loader': 'outfit loader',
+  adopt: 'adopt me!',
+  adoptme: 'adopt me!',
+  'adopt me': 'adopt me!',
+  'adopt me!': 'adopt me!',
+  chidoris: 'chidoris fg grupo',
+  chidorisfg: 'chidoris fg grupo',
+  monsur: 'monsur',
+  rami: 'rami item buyer',
+  luk: 'luk item buyer',
+  miel: 'miel item buyer'
+};
+
 async function loadLinks() {
   try {
     const res = await fetch('https://chidoris.lovable.app/api/public/links');
@@ -43,11 +66,11 @@ function buildLinksEmbed(page, expiresAt) {
       return entry.id ? `${entryLine}\n-# ID: ${entry.id}` : entryLine;
     }).join('\n\n'),
     '',
-    `-# Si quieres el link directo de alguno, responde a mi mensaje con el nombre. Si no queres abrir Discord, ve aca: https://chidoris.lovable.app/view-links . Este mensaje vence a las <t:${expiresAt}:T>`
+    `-# Si quieres el link directo de alguno, responde a mi mensaje con el nombre o atajo (ej. dh, rami, catalogo). Si no quieres abrir Discord, ve acá: https://chidoris.lovable.app/view-links . Este mensaje vence a las <t:${expiresAt}:T>`
   ].join('\n');
 
   return new EmbedBuilder()
-    .setColor(PASTEL_BLUE)
+    .setColor(BABY_BLUE)
     .setTitle('✧ links')
     .setDescription(description)
     .setImage(page.image);
@@ -71,13 +94,18 @@ function buildLinksButtons(currentPage, totalPages, disabled = false) {
 module.exports = {
   name: 'links',
   description: 'Muestra los links guardados del servidor.',
-  async execute(message, args, client) {
+  async execute(message) {
     const linksData = await loadLinks();
     const expiresAt = Math.floor((Date.now() + 3 * 60 * 1000) / 1000);
 
     if (!linksData.pages?.length) {
       return message.reply({
-        embeds: [new EmbedBuilder().setColor(PASTEL_BLUE).setTitle('error').setDescription('No hay links guardados.')]
+        embeds: [
+          new EmbedBuilder()
+            .setColor(BABY_BLUE)
+            .setTitle('✧ error')
+            .setDescription('No hay links guardados.')
+        ]
       });
     }
 
@@ -91,6 +119,7 @@ module.exports = {
 
     const botReply = await message.reply(buildState());
 
+    // 1. Pagination button collector (only for the user who ran the command)
     const buttonCollector = botReply.createMessageComponentCollector({
       filter: interaction => interaction.user.id === message.author.id,
       time: 3 * 60 * 1000
@@ -106,18 +135,26 @@ module.exports = {
       await botReply.edit(buildState(true)).catch(() => {});
     });
 
+    // 2. Reply collector (ANY user in the channel can reply to get the plain link)
     const replyCollector = message.channel.createMessageCollector({
-      filter: r => r.reference?.messageId === botReply.id && r.author.id === message.author.id,
+      filter: r => r.reference?.messageId === botReply.id && !r.author.bot,
       time: 3 * 60 * 1000
     });
 
     replyCollector.on('collect', async response => {
-      const normalizedName = response.content.trim().toLowerCase();
+      const rawInput = response.content.trim().toLowerCase();
+      // Check if user typed an alias, otherwise search the raw text
+      const targetName = REPLY_ALIASES[rawInput] || rawInput;
+
       const matchedEntry = (linksData.pages || [])
         .flatMap(page => page.entries || [])
-        .find(entry => entry.name.toLowerCase() === normalizedName);
+        .find(entry => entry.name.toLowerCase() === targetName);
 
-      if (!matchedEntry) return response.reply('No encontré ese link.');
+      if (!matchedEntry) {
+        return response.reply('No encontré ese link.');
+      }
+
+      // Sends plain link directly without an embed
       await response.reply(matchedEntry.link);
     });
   }
