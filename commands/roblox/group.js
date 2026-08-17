@@ -78,22 +78,16 @@ module.exports = {
     const createdUnix = rawCreated ? Math.floor(new Date(rawCreated).getTime() / 1000) : null;
     const createdText = createdUnix ? `<t:${createdUnix}:D> (<t:${createdUnix}:R>)` : 'Desconocida';
 
-    // Last updated date timestamp (from shout or update date)
-    const rawUpdated = groupData.shout?.updated || groupData.shout?.created || groupV2Info.updated;
-    const updatedUnix = rawUpdated ? Math.floor(new Date(rawUpdated).getTime() / 1000) : null;
-    const updatedText = updatedUnix ? `<t:${updatedUnix}:D> (<t:${updatedUnix}:R>)` : 'Sin cambios recientes';
-
     const groupUrl = `https://www.roblox.com/groups/${groupData.id}`;
     const ownerName = groupData.owner ? `[${groupData.owner.username}](https://www.roblox.com/users/${groupData.owner.userId}/profile)` : '*Sin dueño (Abandonado)*';
     const accessText = groupData.publicEntryAllowed ? 'Público' : 'Requiere Aprobación';
     const memberCount = groupData.memberCount ? groupData.memberCount.toLocaleString() : '0';
 
-    // Description layout with bold labels, neat 2x2 rows, creation & update timestamps, shout, and bio
+    // Description layout with bold labels, neat rows, shout, and bio
     const description = [
       `**Dueño:** ${ownerName} | **Miembros:** ${memberCount}`,
       `**ID:** \`${groupData.id}\` | **Acceso:** ${accessText}`,
       `**Creado:** ${createdText}`,
-      `**Actualizado:** ${updatedText}`,
       '',
       `**Anuncio:**`,
       groupData.shout?.body ? `\`\`\`${groupData.shout.body.slice(0, 300)}\`\`\`\n-# Por: ${groupData.shout.poster?.username || 'Desconocido'}` : '*Sin anuncio reciente*',
