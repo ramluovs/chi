@@ -17,7 +17,7 @@ module.exports = {
     try {
       const channel = await message.guild.channels.fetch(VERIFY_CHANNEL_ID).catch(() => null) || message.channel;
 
-      // maxAge: 1800s (30m shortest allowed), maxUses: 1
+      // 1-use invite, 30 min expiration
       const invite = await channel.createInvite({
         maxAge: 1800,
         maxUses: 1,
@@ -27,7 +27,10 @@ module.exports = {
 
       return message.reply({
         embeds: [
-          makeEmbed('✧ invitación temporal', `Enlace de 1 solo uso para <#${channel.id}>:\n\n🔗 ${invite.url}\n\n-# Vence tras 1 uso o en 30 minutos.`)
+          makeEmbed(
+            '✧ invitación temporal',
+            `Aquí tienes tu enlace de 1 solo uso, <@${message.author.id}>:\n\n🔗 ${invite.url}\n\n-# Vence tras 1 uso o en 30 minutos.`
+          )
         ]
       });
     } catch {
