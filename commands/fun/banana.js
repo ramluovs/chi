@@ -2,8 +2,8 @@ const { EmbedBuilder } = require('discord.js');
 
 module.exports = {
   name: 'banana',
-  description: 'Mide el tamaño de la banana.',
-  async execute(message, args, client) {
+  aliases: [],
+  async execute(message) {
     const size = Math.floor(Math.random() * 30) + 1;
     const targetMember = message.mentions.members.first() || message.member;
     const displayName = targetMember?.displayName || targetMember?.user?.username || message.author.username;
