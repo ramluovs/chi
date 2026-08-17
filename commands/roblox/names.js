@@ -56,7 +56,7 @@ module.exports = {
     const data = await res.json();
     const history = data.data || [];
     const profileUrl = `https://www.roblox.com/users/${target.id}/profile`;
-    const titleText = `nombres pasados de ${target.name} (${history.length})`;
+    const titleText = `${target.name} (${history.length}) — nombres pasados `;
 
     if (history.length === 0) {
       return message.reply({
