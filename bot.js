@@ -26,20 +26,31 @@ if (fs.existsSync(commandsPath)) {
     const commandFiles = fs.readdirSync(categoryPath).filter(file => file.endsWith('.js'));
     for (const file of commandFiles) {
       const command = require(path.join(categoryPath, file));
-      if (command.name) {
-        client.commands.set(command.name.toLowerCase(), command);
-        if (command.aliases && Array.isArray(command.aliases)) {
-          command.aliases.forEach(alias => client.aliases.set(alias.toLowerCase(), command.name.toLowerCase()));
-        }
+      const commandName = (command.name || file.replace('.js', '')).toLowerCase();
+      
+      client.commands.set(commandName, command);
+      
+      if (command.aliases && Array.isArray(command.aliases)) {
+        command.aliases.forEach(alias => {
+          client.aliases.set(alias.toLowerCase(), commandName);
+        });
       }
     }
   }
 }
 
+// ===== READY =====
 client.once('clientReady', () => {
-  console.log(`Logged in as ${client.user.tag}`);
+  console.log(`✅ CHI is online as ${client.user.tag}`);
+
+  // Schedule birthday checks
+  const birthdayCommand = client.commands.get('birthday');
+  if (birthdayCommand && typeof birthdayCommand.scheduleCheck === 'function') {
+    birthdayCommand.scheduleCheck(client);
+  }
 });
 
+// ===== MESSAGE HANDLER =====
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
@@ -57,11 +68,17 @@ client.on('messageCreate', async message => {
     await command.execute(message, args, client);
   } catch (err) {
     console.error(`[Command: ${commandName}] Error:`, err);
-    await message.reply('There was an error executing that command.').catch(() => {});
+    await message.reply('⚠️ Ocurrió un error inesperado al ejecutar ese comando.').catch(() => {});
   }
 });
 
+// ===== TERMUX ERROR PROTECTION =====
 process.on('unhandledRejection', reason => console.error('[unhandledRejection]', reason));
 process.on('uncaughtException', err => console.error('[uncaughtException]', err));
+
+if (!process.env.TOKEN) {
+  console.error('❌ Falta la variable de entorno TOKEN.');
+  process.exit(1);
+}
 
 client.login(process.env.TOKEN);
