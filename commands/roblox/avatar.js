@@ -1,10 +1,10 @@
 const { EmbedBuilder } = require('discord.js');
 const { safeFetch, resolveRobloxUser, BABY_BLUE } = require('./robloxHelper');
 
-function makeEmbed(title, description) {
+function makeEmbed(title, url = null) {
   const embed = new EmbedBuilder().setColor(BABY_BLUE);
   if (title) embed.setTitle(title);
-  if (description) embed.setDescription(description);
+  if (url) embed.setURL(url);
   return embed;
 }
 
@@ -15,14 +15,24 @@ module.exports = {
     const input = args[0];
     if (!input) {
       return message.reply({
-        embeds: [makeEmbed('✧ avatar — uso', 'Debes escribir un nombre o ID de Roblox.\nUso: `chi avatar <usuario/ID>`')]
+        embeds: [
+          new EmbedBuilder()
+            .setColor(BABY_BLUE)
+            .setTitle('✧ avatar — uso')
+            .setDescription('Debes escribir un nombre o ID de Roblox.\nUso: `chi avatar <usuario/ID>`')
+        ]
       });
     }
 
     const target = await resolveRobloxUser(input);
     if (!target) {
       return message.reply({
-        embeds: [makeEmbed('✧ error', `No se encontró al usuario **${input}** en Roblox.`)]
+        embeds: [
+          new EmbedBuilder()
+            .setColor(BABY_BLUE)
+            .setTitle('✧ error')
+            .setDescription(`No se encontró al usuario ${input} en Roblox.`)
+        ]
       });
     }
 
@@ -37,12 +47,20 @@ module.exports = {
 
     if (!avatarUrl) {
       return message.reply({
-        embeds: [makeEmbed('✧ error', 'No se pudo cargar la imagen del avatar.')]
+        embeds: [
+          new EmbedBuilder()
+            .setColor(BABY_BLUE)
+            .setTitle('✧ error')
+            .setDescription('No se pudo cargar la imagen del avatar.')
+        ]
       });
     }
 
     const profileUrl = `https://www.roblox.com/users/${target.id}/profile`;
-    const embed = makeEmbed('✧ avatar de roblox ♡', `Avatar de [**${target.name}**](${profileUrl}) (\`${target.id}\`)`)
+    const displayName = target.displayName || target.name;
+    const titleText = `**${displayName} (@${target.name}) — avatar**`;
+
+    const embed = makeEmbed(titleText, profileUrl)
       .setImage(avatarUrl);
 
     return message.reply({ embeds: [embed] });
