@@ -206,10 +206,12 @@ function scheduleCheck(client) {
 }
 
 module.exports = {
+  name: 'birthday',
+  aliases: ['cumple', 'cumpleanos', 'bday'],
   scheduleCheck,
-  async execute(message, parsedCommand) {
+  async execute(message, args) {
     const userId = message.author.id;
-    const input = parsedCommand.args.join(' ').trim();
+    const input = Array.isArray(args) ? args.join(' ').trim() : '';
 
     if (!input) {
       return message.reply({
