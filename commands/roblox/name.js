@@ -46,7 +46,7 @@ module.exports = {
     }
 
     const searchUrl = `https://www.roblox.com/search/users?keyword=${encodeURIComponent(input)}`;
-    const description = `El nombre `[${input}]`(${searchUrl}) está **${statusText}**`;
+    const description = `El nombre [\`${input}\`](${searchUrl}) está **${statusText}**`;
 
     return message.reply({ embeds: [makeEmbed(description)] });
   }
