@@ -1,7 +1,7 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder } = require('discord.js');
 const { getSpotifyApiForUser, BABY_BLUE } = require('./spotifyHelper');
 
-const TARGET_CHANNEL_ID = '1528987534506594414';
+const ALLOWED_CHANNEL_ID = '1340907464161497168';
 const activeStreams = new Map();
 
 function formatTime(ms) {
@@ -20,6 +20,20 @@ function formatTime(ms) {
   return `${parts[0]}, ${parts[1]} y ${parts[2]}`;
 }
 
+async function sendDisconnectNotice(client, userId, reason) {
+  try {
+    const channel = client.channels.cache.get(ALLOWED_CHANNEL_ID) || await client.channels.fetch(ALLOWED_CHANNEL_ID).catch(() => null);
+    if (!channel || !channel.isTextBased()) return;
+
+    const embed = new EmbedBuilder()
+      .setColor(BABY_BLUE)
+      .setTitle('✧ modo stream desconectado')
+      .setDescription(`El modo stream de <@${userId}> se detuvo automáticamente.\n**Motivo:** ${reason}`);
+
+    await channel.send({ embeds: [embed] }).catch(() => {});
+  } catch (_) {}
+}
+
 async function checkAndSkipForUser(client, userId) {
   const userStream = activeStreams.get(userId);
   if (!userStream) return;
@@ -28,8 +42,8 @@ async function checkAndSkipForUser(client, userId) {
   if (userRes.error) {
     userStream.consecutiveErrors = (userStream.consecutiveErrors || 0) + 1;
     if (userStream.consecutiveErrors >= 5) {
-      clearInterval(userStream.intervalId);
-      activeStreams.delete(userId);
+      stopUserStream(userId);
+      await sendDisconnectNotice(client, userId, 'No se pudo conectar con tu cuenta de Spotify tras varios intentos.');
     }
     return;
   }
@@ -38,9 +52,18 @@ async function checkAndSkipForUser(client, userId) {
 
   try {
     let data = await spotifyApi.getMyCurrentPlaybackState();
-    userStream.consecutiveErrors = 0;
+    
+    // Check if no active playback / device is playing
+    if (!data.body || !data.body.is_playing || !data.body.item) {
+      userStream.consecutiveErrors = (userStream.consecutiveErrors || 0) + 1;
+      if (userStream.consecutiveErrors >= 5) {
+        stopUserStream(userId);
+        await sendDisconnectNotice(client, userId, 'No se detectó ningún dispositivo reproduciendo música en Spotify.');
+      }
+      return;
+    }
 
-    if (!data.body || !data.body.is_playing || !data.body.item) return;
+    userStream.consecutiveErrors = 0;
 
     const oldTrack = data.body.item;
     const progressMs = data.body.progress_ms;
@@ -51,39 +74,12 @@ async function checkAndSkipForUser(client, userId) {
       await spotifyApi.skipToNext();
       userStream.lastSkippedTrackId = oldTrack.id;
       userStream.skippedCount++;
-
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      let newTrack = null;
-      try {
-        const newPlayback = await spotifyApi.getMyCurrentPlaybackState();
-        if (newPlayback.body && newPlayback.body.item) {
-          newTrack = newPlayback.body.item;
-        }
-      } catch (_) {}
-
-      if (userStream.notifyOnSkip && client) {
-        const targetChannel = client.channels.cache.get(TARGET_CHANNEL_ID) || await client.channels.fetch(TARGET_CHANNEL_ID).catch(() => null);
-        if (targetChannel) {
-          let desc = `<@${userId}> saltó **${oldTrack.name}** de **${oldTrack.artists[0].name}**`;
-          if (newTrack) desc += ` a **${newTrack.name}** de **${newTrack.artists[0].name}**`;
-
-          const skipEmbed = new EmbedBuilder()
-            .setColor(BABY_BLUE)
-            .setTitle('⚡ Auto-Salto ♡')
-            .setDescription(desc)
-            .setThumbnail(newTrack?.album?.images[0]?.url || oldTrack.album?.images[0]?.url || null)
-            .setFooter({ text: `Saltado al ${userStream.percent}% + ${userStream.extraSeconds}s ♡` });
-
-          targetChannel.send({ embeds: [skipEmbed] }).catch(() => {});
-        }
-      }
     }
   } catch (err) {
     userStream.consecutiveErrors = (userStream.consecutiveErrors || 0) + 1;
     if (userStream.consecutiveErrors >= 5) {
-      clearInterval(userStream.intervalId);
-      activeStreams.delete(userId);
+      stopUserStream(userId);
+      await sendDisconnectNotice(client, userId, 'Error de conexión con la reproducción de Spotify.');
     }
   }
 }
@@ -103,6 +99,9 @@ module.exports = {
   aliases: [],
   stopUserStream,
   async execute(message, args) {
+    // Strictly restrict execution to this channel only; ignore silently anywhere else
+    if (message.channel.id !== ALLOWED_CHANNEL_ID) return;
+
     const userId = message.author.id;
     const userRes = await getSpotifyApiForUser(userId);
 
@@ -160,7 +159,6 @@ module.exports = {
       lastSkippedTrackId: null,
       startTime: Date.now(),
       skippedCount: 0,
-      notifyOnSkip: true,
       consecutiveErrors: 0,
       intervalId
     };
@@ -170,35 +168,12 @@ module.exports = {
     const streamEmbed = new EmbedBuilder()
       .setColor(BABY_BLUE)
       .setTitle('chi stream ♡')
-      .setDescription(`Modo stream: **ENCENDIDO** para <@${userId}>\n\n¿Deseas enviar avisos al canal cuando se salte una canción?`)
+      .setDescription(`Modo stream: **ENCENDIDO** para <@${userId}>`)
       .addFields(
         { name: 'Porcentaje', value: `**${percent}%**`, inline: true },
         { name: 'Segundos Extra', value: `**+${seconds}s**`, inline: true }
       );
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`stream_yes_${userId}`).setLabel('Sí ♡').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(`stream_no_${userId}`).setLabel('No ♡').setStyle(ButtonStyle.Secondary)
-    );
-
-    const replyMsg = await message.reply({ embeds: [streamEmbed], components: [row] });
-
-    const collector = replyMsg.createMessageComponentCollector({
-      filter: i => i.user.id === userId,
-      time: 30000
-    });
-
-    collector.on('collect', async i => {
-      const cfg = activeStreams.get(userId);
-      if (cfg) {
-        cfg.notifyOnSkip = i.customId.startsWith('stream_yes');
-      }
-
-      await i.update({
-        embeds: [streamEmbed.setFooter({ text: cfg?.notifyOnSkip ? 'Notificaciones activadas ♡' : 'Notificaciones desactivadas ♡' })],
-        components: []
-      });
-      collector.stop();
-    });
+    return message.reply({ embeds: [streamEmbed] });
   }
 };
