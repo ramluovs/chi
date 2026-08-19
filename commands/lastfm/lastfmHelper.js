@@ -65,18 +65,39 @@ function checkLastfmAuth(message) {
 }
 
 // 2. Get current scrobble info
+// Get currently playing (or most recently scrobbled) track/artist/album
 async function getCurrentlyPlaying(username = LASTFM_CONFIG.USERNAME) {
-  const url = `${BASE_URL}?method=user.getrecenttracks&user=${encodeURIComponent(username)}&api_key=${LASTFM_CONFIG.API_KEY}&format=json&limit=1`;
+  if (!LASTFM_CONFIG.API_KEY || LASTFM_CONFIG.API_KEY === 'YOUR_API_KEY_HERE') {
+    console.error('❌ Missing LASTFM API Key in lastfmHelper.js');
+    return null;
+  }
+
+  const url = `${BASE_URL}?method=user.getrecenttracks&user=${encodeURIComponent(username)}&api_key=${LASTFM_CONFIG.API_KEY}&format=json&limit=2`;
   const data = await safeFetch(url);
-  const track = data?.recenttracks?.track?.[0];
-  if (!track) return null;
+  
+  const tracks = data?.recenttracks?.track;
+  if (!tracks) return null;
+
+  // Last.fm can return an array or a single object if there's only 1 track
+  const trackList = Array.isArray(tracks) ? tracks : [tracks];
+  if (trackList.length === 0) return null;
+
+  // 1. Check if there is an active 'nowplaying' track
+  const nowPlayingTrack = trackList.find(t => t['@attr']?.nowplaying === 'true') || trackList[0];
+
+  const artistName = nowPlayingTrack.artist?.['#text'] || nowPlayingTrack.artist?.name || '';
+  const trackName = nowPlayingTrack.name || '';
+  const albumName = nowPlayingTrack.album?.['#text'] || '';
+  const image = nowPlayingTrack.image?.[3]?.['#text'] || nowPlayingTrack.image?.[2]?.['#text'] || null;
+
+  if (!artistName && !trackName) return null;
 
   return {
-    artist: track.artist?.['#text'] || track.artist?.name || '',
-    track: track.name || '',
-    album: track.album?.['#text'] || '',
-    image: track.image?.[3]?.['#text'] || track.image?.[2]?.['#text'] || null,
-    isPlayingNow: track['@attr']?.nowplaying === 'true'
+    artist: artistName,
+    track: trackName,
+    album: albumName,
+    image: image,
+    isPlayingNow: nowPlayingTrack['@attr']?.nowplaying === 'true'
   };
 }
 
