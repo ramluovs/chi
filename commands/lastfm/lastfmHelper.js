@@ -3,7 +3,7 @@ const REQUIRED_ROLE_ID = '1340864854243803248';
 
 const LASTFM_CONFIG = {
   USERNAME: 'lliami',          // Your default Last.fm username
-  API_KEY: 'YOUR_API_KEY_HERE' // Paste your Last.fm API Key here
+  API_KEY: 'de43619e5650177cc7a1ddde70602cb3' // Paste your Last.fm API Key here
 };
 
 const BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
