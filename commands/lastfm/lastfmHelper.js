@@ -3,47 +3,42 @@ const REQUIRED_ROLE_ID = '1340864854243803248';
 
 const LASTFM_CONFIG = {
   USERNAME: 'lliami',          // Your default Last.fm username
-  API_KEY: 'de43619e5650177cc7a1ddde70602cb3'   // Paste your Last.fm API Key here
+  API_KEY: 'YOUR_API_KEY_HERE' // Paste your Last.fm API Key here
 };
 
 const BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
 
 const TIME_PERIODS = {
-  '1d': { label: 'últimas 24 horas', type: 'day' },
-  '24h': { label: 'últimas 24 horas', type: 'day' },
-  'day': { label: 'últimas 24 horas', type: 'day' },
-  'd': { label: 'últimas 24 horas', type: 'day' },
-  'hoy': { label: 'últimas 24 horas', type: 'day' },
+  '1d': { label: 'past 24 hours', type: 'day' },
+  '24h': { label: 'past 24 hours', type: 'day' },
+  'day': { label: 'past 24 hours', type: 'day' },
+  'd': { label: 'past 24 hours', type: 'day' },
+  'today': { label: 'past 24 hours', type: 'day' },
 
-  '7d': { label: 'últimos 7 días', period: '7day' },
-  '1w': { label: 'últimos 7 días', period: '7day' },
-  'w': { label: 'últimos 7 días', period: '7day' },
-  'week': { label: 'últimos 7 días', period: '7day' },
-  'semana': { label: 'últimos 7 días', period: '7day' },
+  '7d': { label: 'past 7 days', period: '7day' },
+  '1w': { label: 'past 7 days', period: '7day' },
+  'w': { label: 'past 7 days', period: '7day' },
+  'week': { label: 'past 7 days', period: '7day' },
 
-  '1m': { label: 'último mes', period: '1month' },
-  'month': { label: 'último mes', period: '1month' },
-  'm': { label: 'último mes', period: '1month' },
-  'mes': { label: 'último mes', period: '1month' },
+  '1m': { label: 'past month', period: '1month' },
+  'month': { label: 'past month', period: '1month' },
+  'm': { label: 'past month', period: '1month' },
 
-  '3m': { label: 'últimos 3 meses', period: '3month' },
-  '3months': { label: 'últimos 3 meses', period: '3month' },
-  '3meses': { label: 'últimos 3 meses', period: '3month' },
+  '3m': { label: 'past 3 months', period: '3month' },
+  '3months': { label: 'past 3 months', period: '3month' },
 
-  '6m': { label: 'últimos 6 meses', period: '6month' },
-  '6months': { label: 'últimos 6 meses', period: '6month' },
-  'halfyear': { label: 'últimos 6 meses', period: '6month' },
+  '6m': { label: 'past 6 months', period: '6month' },
+  '6months': { label: 'past 6 months', period: '6month' },
+  'halfyear': { label: 'past 6 months', period: '6month' },
 
-  '1y': { label: 'último año', period: '12month' },
-  '12m': { label: 'último año', period: '12month' },
-  'year': { label: 'último año', period: '12month' },
-  'y': { label: 'último año', period: '12month' },
-  'año': { label: 'último año', period: '12month' },
+  '1y': { label: 'past year', period: '12month' },
+  '12m': { label: 'past year', period: '12month' },
+  'year': { label: 'past year', period: '12month' },
+  'y': { label: 'past year', period: '12month' },
 
-  'all': { label: 'todo el tiempo', period: 'overall' },
-  'alltime': { label: 'todo el tiempo', period: 'overall' },
-  'overall': { label: 'todo el tiempo', period: 'overall' },
-  'siempre': { label: 'todo el tiempo', period: 'overall' }
+  'all': { label: 'all time', period: 'overall' },
+  'alltime': { label: 'all time', period: 'overall' },
+  'overall': { label: 'all time', period: 'overall' }
 };
 
 async function safeFetch(url) {
@@ -57,19 +52,19 @@ async function safeFetch(url) {
     clearTimeout(timeout);
     if (!res.ok) return null;
     return await res.json();
-  } catch (err) {
+  } catch {
     clearTimeout(timeout);
     return null;
   }
 }
 
-// 1. Check if user has required role
+// 1. Role verification check
 function checkLastfmAuth(message) {
   if (!message.member || !message.member.roles) return false;
   return message.member.roles.cache.has(REQUIRED_ROLE_ID);
 }
 
-// 2. Get current playing track
+// 2. Get current scrobble info
 async function getCurrentlyPlaying(username = LASTFM_CONFIG.USERNAME) {
   const url = `${BASE_URL}?method=user.getrecenttracks&user=${encodeURIComponent(username)}&api_key=${LASTFM_CONFIG.API_KEY}&format=json&limit=1`;
   const data = await safeFetch(url);
@@ -85,7 +80,7 @@ async function getCurrentlyPlaying(username = LASTFM_CONFIG.USERNAME) {
   };
 }
 
-// 3. Get artist stats (All-Time + metadata)
+// 3. Artist info
 async function getArtistInfo(artistName, noRedirect = false, username = LASTFM_CONFIG.USERNAME) {
   const autocorrect = noRedirect ? '0' : '1';
   const url = `${BASE_URL}?method=artist.getinfo&artist=${encodeURIComponent(artistName)}&username=${encodeURIComponent(username)}&api_key=${LASTFM_CONFIG.API_KEY}&format=json&autocorrect=${autocorrect}`;
@@ -103,7 +98,7 @@ async function getArtistInfo(artistName, noRedirect = false, username = LASTFM_C
   };
 }
 
-// 4. Get artist scrobbles for a specific time period
+// 4. Artist plays in timeframe
 async function getArtistPlaysInPeriod(artistName, periodConfig, username = LASTFM_CONFIG.USERNAME) {
   if (periodConfig.type === 'day') {
     const fromTimestamp = Math.floor((Date.now() - 24 * 60 * 60 * 1000) / 1000);
@@ -129,6 +124,64 @@ async function getArtistPlaysInPeriod(artistName, periodConfig, username = LASTF
   return null;
 }
 
+// 5. Album info
+async function getAlbumInfo(albumName, artistName = '', noRedirect = false, username = LASTFM_CONFIG.USERNAME) {
+  const autocorrect = noRedirect ? '0' : '1';
+  
+  // If artist is known, query directly
+  if (artistName) {
+    const url = `${BASE_URL}?method=album.getinfo&album=${encodeURIComponent(albumName)}&artist=${encodeURIComponent(artistName)}&username=${encodeURIComponent(username)}&api_key=${LASTFM_CONFIG.API_KEY}&format=json&autocorrect=${autocorrect}`;
+    const data = await safeFetch(url);
+    if (data?.album) {
+      const album = data.album;
+      return {
+        name: album.name,
+        artist: album.artist,
+        url: album.url,
+        userPlaycount: parseInt(album.userplaycount || 0, 10),
+        globalPlaycount: parseInt(album.playcount || 0, 10),
+        globalListeners: parseInt(album.listeners || 0, 10),
+        image: album.image?.[3]?.['#text'] || album.image?.[2]?.['#text'] || null,
+        tracksCount: Array.isArray(album.tracks?.track) ? album.tracks.track.length : 0
+      };
+    }
+  }
+
+  // Otherwise search for the album first
+  const searchUrl = `${BASE_URL}?method=album.search&album=${encodeURIComponent(albumName)}&api_key=${LASTFM_CONFIG.API_KEY}&format=json&limit=1`;
+  const searchData = await safeFetch(searchUrl);
+  const match = searchData?.results?.albummatches?.album?.[0];
+  if (!match) return null;
+
+  return getAlbumInfo(match.name, match.artist, noRedirect, username);
+}
+
+// 6. Album plays in timeframe
+async function getAlbumPlaysInPeriod(albumName, periodConfig, username = LASTFM_CONFIG.USERNAME) {
+  if (periodConfig.type === 'day') {
+    const fromTimestamp = Math.floor((Date.now() - 24 * 60 * 60 * 1000) / 1000);
+    const url = `${BASE_URL}?method=user.getrecenttracks&user=${encodeURIComponent(username)}&from=${fromTimestamp}&limit=200&api_key=${LASTFM_CONFIG.API_KEY}&format=json`;
+    const data = await safeFetch(url);
+    const tracks = data?.recenttracks?.track || [];
+    const list = Array.isArray(tracks) ? tracks : [tracks];
+    return list.filter(t => {
+      const alb = (t.album?.['#text'] || '').toLowerCase();
+      return alb === albumName.toLowerCase();
+    }).length;
+  }
+
+  if (periodConfig.period && periodConfig.period !== 'overall') {
+    const url = `${BASE_URL}?method=user.gettopalbums&user=${encodeURIComponent(username)}&period=${periodConfig.period}&limit=500&api_key=${LASTFM_CONFIG.API_KEY}&format=json`;
+    const data = await safeFetch(url);
+    const topList = data?.topalbums?.album || [];
+    const albums = Array.isArray(topList) ? topList : [topList];
+    const match = albums.find(a => a.name.toLowerCase() === albumName.toLowerCase());
+    return match ? parseInt(match.playcount, 10) : 0;
+  }
+
+  return null;
+}
+
 module.exports = {
   BABY_BLUE,
   LASTFM_CONFIG,
@@ -136,5 +189,7 @@ module.exports = {
   checkLastfmAuth,
   getCurrentlyPlaying,
   getArtistInfo,
-  getArtistPlaysInPeriod
+  getArtistPlaysInPeriod,
+  getAlbumInfo,
+  getAlbumPlaysInPeriod
 };
