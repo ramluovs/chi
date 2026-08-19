@@ -211,6 +211,78 @@ async function getAlbumPlaysInPeriod(albumName, periodConfig, username = LASTFM_
   return null;
 }
 
+// Add this function inside commands/lastfm/lastfmHelper.js
+
+async function getArtistTopTracks(artistName, periodConfig = null, username = LASTFM_CONFIG.USERNAME) {
+  // If a time period (like 7d, 1m, 1y) or 24h is given
+  if (periodConfig) {
+    if (periodConfig.type === 'day') {
+      const fromTimestamp = Math.floor((Date.now() - 24 * 60 * 60 * 1000) / 1000);
+      const url = `${BASE_URL}?method=user.getrecenttracks&user=${encodeURIComponent(username)}&from=${fromTimestamp}&limit=200&api_key=${LASTFM_CONFIG.API_KEY}&format=json`;
+      const data = await safeFetch(url);
+      const raw = data?.recenttracks?.track || [];
+      const list = Array.isArray(raw) ? raw : [raw];
+      
+      const counts = {};
+      list.forEach(t => {
+        const art = t.artist?.['#text'] || t.artist?.name || '';
+        if (art.toLowerCase() === artistName.toLowerCase()) {
+          const title = t.name;
+          counts[title] = (counts[title] || 0) + 1;
+        }
+      });
+
+      return Object.entries(counts)
+        .map(([name, playcount]) => ({ name, playcount }))
+        .sort((a, b) => b.playcount - a.playcount);
+    }
+
+    if (periodConfig.period && periodConfig.period !== 'overall') {
+      const url = `${BASE_URL}?method=user.gettoptracks&user=${encodeURIComponent(username)}&period=${periodConfig.period}&limit=500&api_key=${LASTFM_CONFIG.API_KEY}&format=json`;
+      const data = await safeFetch(url);
+      const raw = data?.toptracks?.track || [];
+      const list = Array.isArray(raw) ? raw : [raw];
+      return list
+        .filter(t => (t.artist?.name || '').toLowerCase() === artistName.toLowerCase())
+        .map(t => ({
+          name: t.name,
+          playcount: parseInt(t.playcount, 10),
+          url: t.url
+        }));
+    }
+  }
+
+  // All-time top tracks for user by artist
+  // Last.fm doesn't have a direct user.getArtistTracks with counts, so we aggregate user recent top scrobbles
+  const url = `${BASE_URL}?method=user.gettoptracks&user=${encodeURIComponent(username)}&period=overall&limit=1000&api_key=${LASTFM_CONFIG.API_KEY}&format=json`;
+  const data = await safeFetch(url);
+  const raw = data?.toptracks?.track || [];
+  const list = Array.isArray(raw) ? raw : [raw];
+  
+  return list
+    .filter(t => (t.artist?.name || '').toLowerCase() === artistName.toLowerCase())
+    .map(t => ({
+      name: t.name,
+      playcount: parseInt(t.playcount, 10),
+      url: t.url
+    }));
+}
+
+// Function to fetch Global Top Tracks when user replies "global"
+async function getGlobalArtistTopTracks(artistName, noRedirect = false) {
+  const autocorrect = noRedirect ? '0' : '1';
+  const url = `${BASE_URL}?method=artist.gettoptracks&artist=${encodeURIComponent(artistName)}&api_key=${LASTFM_CONFIG.API_KEY}&format=json&autocorrect=${autocorrect}&limit=50`;
+  const data = await safeFetch(url);
+  const raw = data?.toptracks?.track || [];
+  const list = Array.isArray(raw) ? raw : [raw];
+  return list.map(t => ({
+    name: t.name,
+    playcount: parseInt(t.playcount, 10),
+    listeners: parseInt(t.listeners, 10),
+    url: t.url
+  }));
+}
+
 module.exports = {
   BABY_BLUE,
   LASTFM_CONFIG,
@@ -220,5 +292,7 @@ module.exports = {
   getArtistInfo,
   getArtistPlaysInPeriod,
   getAlbumInfo,
-  getAlbumPlaysInPeriod
+  getAlbumPlaysInPeriod,
+  getArtistTopTracks,
+  getGlobalArtistTopTracks
 };
