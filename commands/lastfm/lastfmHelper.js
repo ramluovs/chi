@@ -2,8 +2,8 @@ const BABY_BLUE = 0xaeefff;
 const REQUIRED_ROLE_ID = '1340864854243803248';
 
 const LASTFM_CONFIG = {
-  USERNAME: 'lliami',          // Your default Last.fm username
-  API_KEY: 'de43619e5650177cc7a1ddde70602cb3' // Paste your 32-character API key here
+  USERNAME: 'lliami',
+  API_KEY: 'de43619e5650177cc7a1ddde70602cb3'
 };
 
 const BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
@@ -48,20 +48,26 @@ async function safeFetch(url) {
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; DiscordBot/1.0; +https://discord.gg)',
+        'User-Agent': 'CHIBot/1.0 (lliami Lastfm Client)',
         'Accept': 'application/json'
       }
     });
     clearTimeout(timeout);
-    if (!res.ok) {
-      console.error(`[Last.fm HTTP Error] Status ${res.status}: ${res.statusText} at ${url}`);
+
+    const text = await res.text();
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      console.error(`[Last.fm Raw Response ${res.status}]:`, text);
       return null;
     }
-    const json = await res.json();
+
     if (json.error) {
-      console.error(`[Last.fm API Error] Code ${json.error}: ${json.message}`);
+      console.error(`[Last.fm Error ${json.error}]: ${json.message}`);
       return null;
     }
+
     return json;
   } catch (err) {
     clearTimeout(timeout);
@@ -76,24 +82,17 @@ function checkLastfmAuth(message) {
   return message.member.roles.cache.has(REQUIRED_ROLE_ID);
 }
 
-// 2. Get current scrobble info (safe fallback logic)
+// 2. Get currently playing or latest scrobbled track
 async function getCurrentlyPlaying(username = LASTFM_CONFIG.USERNAME) {
-  if (!LASTFM_CONFIG.API_KEY || LASTFM_CONFIG.API_KEY === 'YOUR_API_KEY_HERE') {
-    console.error('❌ Missing Last.fm API Key in lastfmHelper.js');
-    return null;
-  }
-
   const url = `${BASE_URL}?method=user.getrecenttracks&user=${encodeURIComponent(username)}&api_key=${LASTFM_CONFIG.API_KEY}&format=json&limit=2`;
   const data = await safeFetch(url);
   
   const rawTracks = data?.recenttracks?.track;
   if (!rawTracks) return null;
 
-  // Handle single object or array
   const trackList = Array.isArray(rawTracks) ? rawTracks : [rawTracks];
   if (trackList.length === 0) return null;
 
-  // Prioritize active nowplaying track, else take the top track
   const current = trackList.find(t => t?.['@attr']?.nowplaying === 'true') || trackList[0];
 
   const artistName = typeof current.artist === 'string' ? current.artist : (current.artist?.['#text'] || current.artist?.name || '');
@@ -130,7 +129,7 @@ async function getArtistInfo(artistName, noRedirect = false, username = LASTFM_C
   };
 }
 
-// 4. Artist plays in period
+// 4. Artist plays in timeframe
 async function getArtistPlaysInPeriod(artistName, periodConfig, username = LASTFM_CONFIG.USERNAME) {
   if (periodConfig.type === 'day') {
     const fromTimestamp = Math.floor((Date.now() - 24 * 60 * 60 * 1000) / 1000);
@@ -186,7 +185,7 @@ async function getAlbumInfo(albumName, artistName = '', noRedirect = false, user
   return getAlbumInfo(match.name, match.artist, noRedirect, username);
 }
 
-// 6. Album plays in period
+// 6. Album plays in timeframe
 async function getAlbumPlaysInPeriod(albumName, periodConfig, username = LASTFM_CONFIG.USERNAME) {
   if (periodConfig.type === 'day') {
     const fromTimestamp = Math.floor((Date.now() - 24 * 60 * 60 * 1000) / 1000);
